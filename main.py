@@ -1,16 +1,13 @@
+import os
+from dotenv import load_dotenv
 from supabase import create_client, Client
-import uuid
-import json
 
+load_dotenv()
 
-# --- Supabase Setup ---
-url = "https://fugokdpbjjdbvkjgwkhi.supabase.co"
-key = "sb_publishable_JxZkb69GMiMmH8we3nkDoA_UKQxvE6B"
-
+url = os.environ.get("SUPABASE_URL")
+key = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
 
-import json
-from collections import defaultdict
 
 import json
 from collections import defaultdict
