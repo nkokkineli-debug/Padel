@@ -1,0 +1,13 @@
+from supabase import create_client, Client
+
+url = "https://fugokdpbjjdbvkjgwkhi.supabase.co"  # <-- Replace with your Project URL
+key = "sb_publishable_JxZkb69GMiMmH8we3nkDoA_UKQxvE6B"          # <-- Replace with your anon public API key
+
+supabase: Client = create_client(url, key)
+
+# Test: Fetch all players
+def get_players():
+    response = supabase.table("players").select("*").execute()
+    print(response.data)
+
+get_players()

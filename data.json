@@ -1,0 +1,45 @@
+{
+    "users": {
+        "kokobas82": {
+            "password": "Kokob@s82",
+            "groups": [
+                "a73dc5e0-c974-438a-8044-335e3b65cf28"
+            ]
+        }
+    },
+    "groups": {
+        "a73dc5e0-c974-438a-8044-335e3b65cf28": {
+            "name": "Legos",
+            "members": [
+                "kokobas82"
+            ]
+        }
+    },
+    "players": {
+        "Akis": {
+            "total_points": 0,
+            "recent_form": [],
+            "older_form": [],
+            "match_history": []
+        },
+        "Nikos": {
+            "total_points": 0,
+            "recent_form": [],
+            "older_form": [],
+            "match_history": []
+        },
+        "Panos": {
+            "total_points": 0,
+            "recent_form": [],
+            "older_form": [],
+            "match_history": []
+        },
+        "Thomas": {
+            "total_points": 0,
+            "recent_form": [],
+            "older_form": [],
+            "match_history": []
+        }
+    },
+    "couples": {}
+}
