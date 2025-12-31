@@ -10,7 +10,9 @@ import Ratings from './components/Ratings';
 import Profile from './components/Profile';
 import { FiUserPlus, FiTrash2, FiCopy, FiMenu, FiX } from 'react-icons/fi';
 
-const API_BASE = 'http://127.0.0.1:8000';
+//const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = 'https://padel-4apg.onrender.com';
+
 
 function getAllPairs(arr) {
   let pairs = [];
