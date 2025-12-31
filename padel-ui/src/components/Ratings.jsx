@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 
-const API_BASE = process.env.REACT_APP_API_BASE || "http://127.0.0.1:8000";
+//const API_BASE = process.env.REACT_APP_API_BASE || "http://127.0.0.1:8000";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://padel-4apg.onrender.com";
+
 
 // Helper to check if a player is in a team by any identifier
 function playerInTeam(player, team) {

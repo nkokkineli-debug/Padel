@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 
-const API_BASE = process.env.REACT_APP_API_BASE || "http://127.0.0.1:8000";
+//const API_BASE = process.env.REACT_APP_API_BASE || "http://127.0.0.1:8000";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://padel-4apg.onrender.com";
 
 export default function Profile({ user }) {
   const [backendNickname, setBackendNickname] = useState('');

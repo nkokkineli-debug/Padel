@@ -22,7 +22,7 @@ export default function PlayerDropdown({
   const handleAddPlayer = async () => {
     if (!newPlayerName.trim()) return;
     setAdding(true);
-    await fetch('http://127.0.0.1:8000/add_player_to_group', {
+    await fetch('${API_BASE}/add_player_to_group', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newPlayerName.trim(), group_id: selectedGroup, nickname: newPlayerName.trim() })
