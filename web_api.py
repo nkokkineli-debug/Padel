@@ -364,11 +364,57 @@ def propose_teams(group_id: str, match_date: str):
 async def link_user_to_player(request: Request):
     data = await request.json()
     group_id = data.get("group_id")
-    player_name = data.get("player_name")
+    player_name = data.get("player_name")  # The current name in players table (old nickname)
     username = data.get("username")
-    # Update the player record to link to this user (e.g., add a "username" field)
-    supabase.table("players").update({"username": username}).eq("group_id", group_id).eq("name", player_name).execute()
-    return {"message": "User linked to player"}
+    new_nickname = data.get("nickname")    # The new nickname to set
+
+    try:
+        # 1. Update user's nickname in users table
+        supabase.table("users").update({"nickname": new_nickname}).eq("username", username).execute()
+
+        # 2. Update player's name in the group
+        supabase.table("players").update({"name": new_nickname}).eq("group_id", group_id).eq("name", player_name).execute()
+
+        # 3. Update all matches in the group where the old nickname appears in team1, team2, or couples
+        matches = supabase.table("matches").select("*").eq("group_id", group_id).execute().data
+        for match in matches:
+            updated = False
+            import json
+            team1 = match.get("team1", [])
+            team2 = match.get("team2", [])
+            couples = match.get("couples", [])
+
+            if isinstance(team1, str):
+                try:
+                    team1 = json.loads(team1)
+                except Exception:
+                    team1 = []
+            if isinstance(team2, str):
+                try:
+                    team2 = json.loads(team2)
+                except Exception:
+                    team2 = []
+            if isinstance(couples, str):
+                try:
+                    couples = json.loads(couples)
+                except Exception:
+                    couples= []
+
+            new_team1 = [new_nickname if p == player_name else p for p in team1]
+            new_team2 = [new_nickname if p == player_name else p for p in team2]
+            new_couples = [[new_nickname if p == player_name else p for p in couple] for couple in couples]
+
+            if team1 != new_team1 or team2 != new_team2 or couples != new_couples:
+                supabase.table("matches").update({
+                    "team1": json.dumps(new_team1),
+                    "team2": json.dumps(new_team2),
+                    "couples": json.dumps(new_couples)
+                }).eq("id", match["id"]).execute()
+
+        return {"message": "User linked to player and nicknames updated"}
+    except Exception as e:
+        print("Error in /link_user_to_player:", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.get("/get_nickname")
 def get_nickname(username: str):
