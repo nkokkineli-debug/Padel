@@ -365,9 +365,10 @@ async def link_user_to_player(request: Request):
 @app.get("/get_nickname")
 def get_nickname(username: str):
     try:
-        user = supabase.table("users").select("nickname").eq("username", username).single().execute()
-        if hasattr(user, "data") and user.data and "nickname" in user.data:
-            return {"nickname": user.data["nickname"]}
+        user = supabase.table("users").select("nickname").eq("username", username).execute()
+        data = getattr(user, "data", None)
+        if data and isinstance(data, list) and len(data) > 0 and "nickname" in data[0]:
+            return {"nickname": data[0]["nickname"]}
         return {"nickname": ""}
     except Exception as e:
         print("Error in /get_nickname:", e)
