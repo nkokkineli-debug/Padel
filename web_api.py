@@ -364,21 +364,27 @@ def propose_teams(group_id: str, match_date: str):
 async def link_user_to_player(request: Request):
     data = await request.json()
     group_id = data.get("group_id")
-    player_name = data.get("player_name")  # The current name in players table (old nickname)
+    player_name = data.get("player_name")
     username = data.get("username")
-    new_nickname = data.get("nickname")    # The new nickname to set
+    new_nickname = data.get("nickname")
+
+    if not new_nickname:
+        return JSONResponse({"error": "New nickname cannot be empty."}, status_code=400)
 
     try:
         # 1. Update user's nickname in users table
         supabase.table("users").update({"nickname": new_nickname}).eq("username", username).execute()
 
         # 2. Update player's name in the group
-        supabase.table("players").update({"name": new_nickname}).eq("group_id", group_id).eq("name", player_name).execute()
+        update_result = supabase.table("players").update({"name": new_nickname}).eq("group_id", group_id).eq("name", player_name).execute()
+
+        # If no player was updated, return an error
+        if not update_result.data or (isinstance(update_result.data, list) and len(update_result.data) == 0):
+            return JSONResponse({"error": "Player not found in group."}, status_code=404)
 
         # 3. Update all matches in the group where the old nickname appears in team1, team2, or couples
         matches = supabase.table("matches").select("*").eq("group_id", group_id).execute().data
         for match in matches:
-            updated = False
             import json
             team1 = match.get("team1", [])
             team2 = match.get("team2", [])
@@ -398,7 +404,7 @@ async def link_user_to_player(request: Request):
                 try:
                     couples = json.loads(couples)
                 except Exception:
-                    couples= []
+                    couples = []
 
             new_team1 = [new_nickname if p == player_name else p for p in team1]
             new_team2 = [new_nickname if p == player_name else p for p in team2]
