@@ -1,6 +1,9 @@
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from fastapi import FastAPI
+
+app = FastAPI()
 
 load_dotenv()
 
