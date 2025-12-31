@@ -328,11 +328,19 @@ def couple_ratings(group_id: str):
 @app.post("/set_nickname")
 async def set_nickname(request: Request):
     data = await request.json()
-    username = data.get("username")
+    username = data.get("username")  # This should be the user's email
     nickname = data.get("nickname")
     try:
-        supabase.table("users").update({"nickname": nickname}).eq("username", username).execute()
-        return {"message": "Nickname updated!"}
+        # Check if user exists
+        existing = supabase.table("users").select("*").eq("username", username).execute().data
+        if existing and len(existing) > 0:
+            # Update both username and nickname (username should not change, but for completeness)
+            supabase.table("users").update({"nickname": nickname, "username": username}).eq("username", username).execute()
+            return {"message": "Nickname updated!"}
+        else:
+            # Insert new user with both fields
+            supabase.table("users").insert({"username": username, "nickname": nickname}).execute()
+            return {"message": "User created!"}
     except Exception as e:
         print("Error in /set_nickname:", e)
         return JSONResponse({"error": str(e)}, status_code=500)
