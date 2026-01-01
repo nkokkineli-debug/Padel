@@ -312,34 +312,51 @@ function App() {
 
   // --- UPDATED REGISTRATION HANDLER ---
   const handleRegister = async (e) => {
-    e.preventDefault();
-    setError('');
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
+  e.preventDefault();
+  setError('');
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+  if (error) setError(error.message);
+  else {
+    // Set nickname for the user
+    await fetch(`${API_BASE}/set_nickname`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: email, nickname }),
     });
-    if (error) setError(error.message);
-    else {
-      await fetch(`${API_BASE}/set_nickname`, {
+
+    // If group id is provided, register user in group
+    if (registerGroupId) {
+      await fetch(`${API_BASE}/register_in_group`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: email, nickname }),
+        body: JSON.stringify({
+          name: email, // or username: email, depending on your backend
+          group_id: registerGroupId,
+          nickname: nickname
+        }),
       });
-      // If group id and player selected, link user to player
-      if (registerGroupId && selectedExistingPlayer) {
-        await fetch(`${API_BASE}/link_user_to_player`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            group_id: registerGroupId,
-            player_name: selectedExistingPlayer,
-            username: email
-          }),
-        });
-      }
-      alert('Registration successful! Please check your email to confirm.');
     }
-  };
+
+    // If player linking is needed, call link_user_to_player as before
+    if (registerGroupId && selectedExistingPlayer) {
+      await fetch(`${API_BASE}/link_user_to_player`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          group_id: registerGroupId,
+          player_name: selectedExistingPlayer,
+          username: email,
+          nickname: nickname
+        }),
+      });
+    }
+
+    alert('Registration successful! Please check your email to confirm.');
+  }
+};
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

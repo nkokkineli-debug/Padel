@@ -8,7 +8,8 @@ import main  # <-- Import your business logic and supabase client
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://padel-chi.vercel.app"],
+    ##allow_origins=["https://padel-chi.vercel.app"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -420,6 +421,25 @@ async def link_user_to_player(request: Request):
         return {"message": "User linked to player and nicknames updated"}
     except Exception as e:
         print("Error in /link_user_to_player:", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+    
+@app.post("/register_in_group")
+async def register_in_group(request: Request):
+    data = await request.json()
+    username = data.get("name")  # or data.get("username")
+    group_id = data.get("group_id")
+    nickname = data.get("nickname")
+    try:
+        # Insert into user_groups if not already present
+        existing = supabase.table("user_groups").select("*").eq("username", username).eq("group_id", group_id).execute().data
+        if not existing:
+            supabase.table("user_groups").insert({"username": username, "group_id": group_id}).execute()
+        # Optionally update nickname
+        if nickname:
+            supabase.table("users").update({"nickname": nickname}).eq("username", username).execute()
+        return {"message": "User registered in group!"}
+    except Exception as e:
+        print("Error in /register_in_group:", e)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.get("/get_nickname")
