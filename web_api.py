@@ -2,6 +2,8 @@ from fastapi import FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from typing import Optional
+from itertools import combinations
+from fastapi.responses import JSONResponse
 import uuid
 import main  # <-- Import your business logic and supabase client
 
@@ -379,14 +381,82 @@ async def set_nickname(request: Request):
 # --- Propose Teams Endpoint ---
 @app.get("/propose_teams")
 def propose_teams(group_id: str, match_date: str):
+    import json
+
     try:
+        # 1. Get registered users for the match
         match = supabase.table("next_matches").select("*").eq("group_id", group_id).eq("match_date", match_date).execute().data
         if not match:
-            return {"teams": []}
+            return {"couples": [], "leftover": None}
         users = match[0].get("registered_users", [])
-        half = len(users) // 2
-        teams = [users[:half],users[half:]]
-        return {"teams": teams}
+        if not users or len(users) < 2:
+            return {"couples": [], "leftover": users[0] if users else None}
+
+        # 2. Get player points
+        players_data = supabase.table("players").select("name,total_points").eq("group_id", group_id).execute().data
+        player_points = {p["name"]: p.get("total_points", 0) for p in players_data}
+
+        # 3. Get couple points
+        couples_data = supabase.table("couples").select("player1,player2,total_points").eq("group_id", group_id).execute().data
+        couple_points = {}
+        for c in couples_data:
+            key1 = (c["player1"], c["player2"])
+            key2 = (c["player2"], c["player1"])
+            couple_points[key1] = c.get("total_points", 0)
+            couple_points[key2] = c.get("total_points", 0)
+
+        # 4. Generate all possible couples
+        all_couples = list(combinations(users, 2))
+
+        # 5. Find best set of non-overlapping couples
+        n = len(users)
+        max_couples = n // 2
+        best_combo = None
+        min_diff = float('inf')
+        best_strengths = None
+
+        def is_non_overlapping(combo):
+            used = set()
+            for c in combo:
+                if c[0] in used or c[1] in used:
+                    return False
+                used.add(c[0])
+                used.add(c[1])
+            return True
+
+        from itertools import combinations as iter_combinations
+
+        for combo in iter_combinations(all_couples, max_couples):
+            if not is_non_overlapping(combo):
+                continue
+            strengths = []
+            for c in combo:
+                pts = player_points.get(c[0], 0) + player_points.get(c[1], 0) + couple_points.get((c[0], c[1]), 0)
+                strengths.append(pts)
+            diff = max(strengths) - min(strengths)
+            if diff < min_diff:
+                min_diff = diff
+                best_combo = combo
+                best_strengths = strengths
+
+        # 6. Handle leftover player if odd number
+        leftover = None
+        if n % 2 == 1 and best_combo:
+            paired = set()
+            for c in best_combo:
+                paired.add(c[0])
+                paired.add(c[1])
+            leftover = [u for u in users if u not in paired]
+            leftover = leftover[0] if leftover else None
+
+        couples = [list(c) for c in best_combo] if best_combo else []
+
+        return {
+            "couples": couples,
+            "leftover": leftover,
+            "couple_strengths": best_strengths
+        }
+
     except Exception as e:
         print("Error in /propose_teams:", e)
         return JSONResponse({"error": str(e)}, status_code=500)
