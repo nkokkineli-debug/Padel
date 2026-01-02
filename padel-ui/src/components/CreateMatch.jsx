@@ -102,7 +102,8 @@ export default function CreateMatch({
     setProposedTeams(prev => ({ ...prev, [matchDate]: [] }));
     const res = await fetch(`${API_BASE}/propose_teams?group_id=${groupId}&match_date=${matchDate}`);
     const data = await res.json();
-    setProposedTeams(prev => ({ ...prev, [matchDate]: (data && data.teams) || [] }));
+    // Use 'couples' from the backend response
+    setProposedTeams(prev => ({ ...prev, [matchDate]: (data && data.couples) || [] }));
     setProposeLoading(prev => ({ ...prev, [matchDate]: false }));
   };
 
