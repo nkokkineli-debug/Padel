@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
+
 import { FiCopy, FiTrash2, FiUserPlus } from 'react-icons/fi';
 
 //const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8000';
 const API_BASE = process.env.REACT_APP_API_BASE || "https://padel-4apg.onrender.com";
+
+
 
 export default function GroupManagement({ user }) {
   // --- State
@@ -17,6 +20,10 @@ export default function GroupManagement({ user }) {
   // Join group
   const [registerGroupId, setRegisterGroupId] = useState('');
   const [registerMsg, setRegisterMsg] = useState('');
+  const [joinPlayers, setJoinPlayers] = useState([]);
+  const [loadingJoinPlayers, setLoadingJoinPlayers] = useState(false);
+  const [selectedJoinPlayer, setSelectedJoinPlayer] = useState('');
+  const [joinError, setJoinError] = useState('');
 
   // Copy group id
   const [copiedGroupId, setCopiedGroupId] = useState(null);
@@ -99,6 +106,11 @@ export default function GroupManagement({ user }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ group_id: newGroupId, nickname: user.nickname || user.email, username: user.email })
         });
+        await fetch(`${API_BASE}/register_in_group`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ group_id: newGroupId, nickname: user.nickname || user.email, username: user.email })
+        });
         fetchPlayers(newGroupId);
       }
     } catch (err) {
@@ -106,29 +118,100 @@ export default function GroupManagement({ user }) {
     }
   };
 
+  // --- JOIN GROUP LOGIC ---
+  const handleLoadJoinPlayers = async () => {
+    setLoadingJoinPlayers(true);
+    setJoinPlayers([]);
+    setSelectedJoinPlayer('');
+    setJoinError('');
+    try {
+      const res = await fetch(`${API_BASE}/players?group_id=${registerGroupId}`);
+      if (!res.ok) throw new Error('Failed to fetch players');
+      const data = await res.json();
+      if (!data.length) {
+        setJoinError('No players found for this group.');
+      } else {
+        setJoinPlayers(data);
+      }
+    } catch (err) {
+      setJoinError('Could not load group players.');
+    }
+    setLoadingJoinPlayers(false);
+  };
+
   const handleRegisterGroup = async (e) => {
     e.preventDefault();
     setRegisterMsg('');
+    setJoinError('');
     try {
+      // Always add user to user_groups
       await fetch(`${API_BASE}/register_in_group`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ group_id: registerGroupId, nickname: user.nickname || user.email, username: user.email })
+        body: JSON.stringify({
+          group_id: registerGroupId,
+          nickname: user.nickname || user.email,
+          username: user.email,
+        }),
       });
-      setRegisterMsg('Registered in group!');
-      setRegisterGroupId('');
-      await fetchUserGroups();
-      if (registerGroupId) {
-        await fetch(`${API_BASE}/add_player_to_group`, {
+
+      if (selectedJoinPlayer) {
+        // Link user to existing player
+        const res = await fetch(`${API_BASE}/link_user_to_player`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ group_id: registerGroupId, nickname: user.nickname || user.email, username: user.email })
+          body: JSON.stringify({
+            group_id: registerGroupId,
+            player_name: selectedJoinPlayer,
+            username: user.email,
+            nickname: user.nickname || user.email,
+          }),
+      
+  });
+        const data = await res.json();
+        if (data.error) {
+          setJoinError(data.error);
+        } else {
+          setRegisterMsg('Successfully joined group as existing player!');
+          await fetchUserGroups();
+          setSelectedGroup(registerGroupId);
+        }
+      } else {
+        // Add new player and link
+        const res = await fetch(`${API_BASE}/add_player_to_group`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            group_id: registerGroupId,
+            nickname: user.nickname || user.email,
+            username: user.email,
+          }),
         });
-        fetchPlayers(registerGroupId);
-        setSelectedGroup(registerGroupId);
+        const data = await res.json();
+        if (data.error) {
+          setJoinError(data.error);
+        } else {
+          // Optionally link user to player (if needed)
+          await fetch(`${API_BASE}/link_user_to_player`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              group_id: registerGroupId,
+              player_name: user.nickname || user.email,
+              username: user.email,
+              nickname: user.nickname || user.email,
+            }),
+          });
+          setRegisterMsg('Successfully joined group as new player!');
+          await fetchUserGroups();
+          setSelectedGroup(registerGroupId);
+        }
       }
+      setRegisterGroupId('');
+      setJoinPlayers([]);
+      setSelectedJoinPlayer('');
     } catch (err) {
-      setRegisterMsg('Error joining group: ' + err.message);
+      setJoinError('Error joining group.');
     }
   };
 
@@ -171,7 +254,12 @@ export default function GroupManagement({ user }) {
       });
       const data = await res.json();
       setAddPlayerMsg(data.message || 'Player added!');
-      setAddPlayerName('');
+      // Add to user_groups
+      await fetch(`${API_BASE}/register_in_group`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: selectedGroup, nickname: addPlayerName.trim(), username: user.email })
+      });
       fetchPlayers();
     } catch (err) {
       setAddPlayerMsg('Error adding player: ' + err.message);
@@ -260,11 +348,47 @@ export default function GroupManagement({ user }) {
             {groupMsg && <p>{groupMsg}</p>}
             <hr />
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Join a Group</div>
-            <form onSubmit={handleRegisterGroup} style={{ display: 'flex', gap: 8 }}>
-              <input type="text" placeholder="Group ID to Join" value={registerGroupId} onChange={e => setRegisterGroupId(e.target.value)} required />
-              <button type="submit" className="btn-gray">Join</button>
+            <form onSubmit={handleRegisterGroup} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="Group ID to Join"
+                value={registerGroupId}
+                onChange={e => {
+                  setRegisterGroupId(e.target.value);
+                  setJoinPlayers([]);
+                  setSelectedJoinPlayer('');
+                  setJoinError('');
+                }}
+                required
+                style={{ minWidth: 120 }}
+              />
+              <button
+                type="button"
+                className="btn-gray"
+               
+ onClick={handleLoadJoinPlayers}
+                disabled={!registerGroupId || loadingJoinPlayers}
+              >
+                {loadingJoinPlayers ? 'Loading...' : 'Load Players'}
+              </button>
+              {joinPlayers.length > 0 && (
+                <select
+                  value={selectedJoinPlayer}
+                  onChange={e => setSelectedJoinPlayer(e.target.value)}
+                  style={{ minWidth: 120 }}
+                >
+                  <option value="">I am a new player</option>
+                  {joinPlayers.map(p => (
+                    <option key={p.name} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
+              )}
+              <button type="submit" className="btn-gray">
+                Join
+              </button>
             </form>
-            {registerMsg && <p>{registerMsg}</p>}
+            {registerMsg && <p style={{ color: 'green' }}>{registerMsg}</p>}
+            {joinError && <p style={{ color: 'red' }}>{joinError}</p>}
           </div>
         )}
         <div className="my-groups-list">
