@@ -1,109 +1,177 @@
 import React from 'react';
 
-// Padel racket icon as before
-const PadelRacketIcon = ({ style = {} }) => (
-  <svg
-    width="22"
-    height="22"
-    viewBox="0 0 22 22"
-    fill="none"
-    style={{ marginRight: 10, ...style }}
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <ellipse cx="10" cy="8" rx="7" ry="7" fill="#6D55FF" />
-    <rect x="9" y="14" width="2" height="7" rx="1" fill="#6D55FF" />
-    <circle cx="10" cy="8" r="1.2" fill="#fff" />
-    <circle cx="13" cy="8" r="1.2" fill="#fff" />
-    <circle cx="10" cy="11" r="1.2" fill="#fff" />
-    <circle cx="7" cy="8" r="1.2" fill="#fff" />
-    <circle cx="10" cy="5" r="1.2" fill="#fff" />
-  </svg>
-);
+const COLORS = {
+  primary: "#6D55FF",
+  accent: "#10B981",
+  red: "#EF4444",
+  background: "#F8FAFC",
+  card: "#FFFFFF",
+  text: "#22223B",
+  textLight: "#6C757D",
+  border: "#E5E7EB",
+};
 
-function MyPadel({
-  nextMatches = [],
-  lastGames = [],
-  playerMap = {},
-  onViewAllMatches = () => {},
-  onViewFullHistory = () => {},
-}) {
-  const getPlayerName = id => playerMap[id] || id;
-
+function ResultRow({ team1, team2, score1, score2, setsString }) {
   return (
-    <div className="main-content" style={{ minHeight: '100vh' }}>
-      <div className="content-header" style={{ marginBottom: 32 }}>
-        <h2>Dashboard</h2>
-        <a href="/create-match" className="btn btn-green">Create Match</a>
-        {/* If using React Router, use:
-        <Link to="/create-match" className="btn btn-green">Create Match</Link>
-        */}
+    <div className="result-row">
+      <div className="row-content">
+        <span className="player-box">{team1}</span>
+        <span className="sets-won-box">{score1}</span>
+        <span className="vs">vs</span>
+        <span className="sets-won-box">{score2}</span>
+        <span className="player-box">{team2}</span>
       </div>
-      <div style={{ display: 'flex', gap: 32 }}>
-        {/* Main Column */}
-        <div style={{ flex: 2 }}>
-          {/* Forthcoming Matches */}
-          <div className="card" style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h4>Forthcoming Matches</h4>
-              <button className="btn btn-gray" onClick={onViewAllMatches} style={{ fontSize: 14 }}>View All</button>
-            </div>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {nextMatches.map((m, idx) => (
-                <li key={m.id || idx} style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-                  <PadelRacketIcon />
-                  <span style={{ fontWeight: 600, marginRight: 8 }}>{m.match_date}</span>
-                  <span style={{ color: 'var(--text-light)', marginRight: 8 }}>{m.location || ''}</span>
-                  <span style={{ color: 'var(--text-dark)' }}>
-                    {(m.registered_users || []).map(getPlayerName).join(', ')}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Last 5 Games */}
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h4>Last 5 Games</h4>
-              <button className="btn btn-gray" onClick={onViewFullHistory} style={{ fontSize: 14 }}>View All</button>
-            </div>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {lastGames.map((g, idx) => (
-                <li key={idx} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  marginBottom: 10,
-                  borderRadius: 8,
-                  padding: '6px 10px'
-                }}>
-                  <PadelRacketIcon />
-                  <span>
-                    {g.date ? g.date + ': ' : ''}
-                    {Array.isArray(g.team1)
-                      ? g.team1.map(getPlayerName).join(' & ')
-                      : (typeof g.team1 === 'string' ? getPlayerName(g.team1) : '')
-                    }
-                    {' vs '}
-                    {Array.isArray(g.team2)
-                      ? g.team2.map(getPlayerName).join(' & ')
-                      : (typeof g.team2 === 'string' ? getPlayerName(g.team2) : '')
-                    }
-                    {' — '}
-                    {(g.score1 !== undefined && g.score2 !== undefined) ? `${g.score1}:${g.score2}` : ''}
-                    {g.sets_string ? ` (${g.sets_string})` : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-        {/* Side Column removed */}
-      </div>
-      <footer style={{ marginTop: 32, textAlign: 'center', color: 'var(--text-light)', fontSize: 15 }}>
-        © 2025 PadelPulse. All rights reserved.
-      </footer>
+      <div className="games-box">{setsString}</div>
     </div>
   );
 }
 
-export default MyPadel;
+function FixtureRow({ team1, team2, date }) {
+  return (
+    <div className="result-row">
+      <div className="row-content">
+        <span className="player-box">{team1}</span>
+        <span className="vs">vs</span>
+        <span className="player-box">{team2}</span>
+      </div>
+      <div className="games-box date-box">{date}</div>
+    </div>
+  );
+}
+
+export default function MyPadel({
+  nextMatches = [],
+  lastGames = [],
+  playerMap = {},
+}) {
+  const getPlayerName = id => playerMap[id] || id;
+
+  const fixtures = nextMatches.map((m, idx) => {
+    const team1 = (m.team1 || m.registered_users?.slice(0, 2) || []).map(getPlayerName).join(' & ') || "TBD";
+    const team2 = (m.team2 || m.registered_users?.slice(2, 4) || []).map(getPlayerName).join(' & ') || "TBD";
+    return (
+      <FixtureRow
+        key={m.id || idx}
+        team1={team1}
+        team2={team2}
+        date={m.match_date}
+      />
+    );
+  });
+
+  const results = lastGames.map((g, idx) => {
+    const team1 = Array.isArray(g.team1)
+      ? g.team1.map(getPlayerName).join(' & ')
+      : (typeof g.team1 === 'string' ? getPlayerName(g.team1) : '');
+    const team2 = Array.isArray(g.team2)
+      ? g.team2.map(getPlayerName).join(' & ')
+      : (typeof g.team2 === 'string' ? getPlayerName(g.team2) : '');
+    return (
+      <ResultRow
+        key={g.id || idx}
+
+        team1={team1}
+        team2={team2}
+        score1={g.score1}
+        score2={g.score2}
+        setsString={g.sets_string}
+      />
+    );
+  });
+
+  return (
+    <div style={{ background: COLORS.background, minHeight: "100vh", padding: "32px 0" }}>
+      <div style={{ textAlign: "center", marginBottom: 16 }}>
+        <h2 style={{ color: COLORS.primary, margin: 0, fontSize: 22 }}>Fixtures</h2>
+      </div>
+      <div className="rows-list">
+        {fixtures.length === 0 ? (
+          <div style={{ color: COLORS.textLight, textAlign: 'center', padding: 12 }}>
+            No upcoming matches scheduled.
+          </div>
+        ) : fixtures}
+      </div>
+      <div style={{ textAlign: "center", margin: "24px 0 8px 0" }}>
+        <h2 style={{ color: COLORS.primary, margin: 0, fontSize: 22 }}>Results</h2>
+      </div>
+      <div className="rows-list">
+        {results.length === 0 ? (
+          <div style={{ color: COLORS.textLight, textAlign: 'center', padding: 12 }}>
+            No games played yet.
+          </div>
+        ) : results}
+      </div>
+      <footer style={{ marginTop: 16, textAlign: 'center', color: COLORS.textLight, fontSize: 14 }}>
+        © 2025 PadelPals. All rights reserved.
+      </footer>
+      <style>{`
+        .rows-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          align-items: center;
+          width: 100%;
+        }
+        .result-row {
+          width: 100%;
+          max-width: 500px;
+          margin: 0;
+          padding: 0;
+        }
+        .row-content {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          background: ${COLORS.card};
+          border-radius: 12px 12px 0 0;
+          font-weight: 700;
+          font-size: 1rem;
+          color: ${COLORS.text};
+          min-height: 36px;
+          padding: 0 0 0 0;
+        }
+        .player-box {
+          background: ${COLORS.background};
+          border-radius: 8px;
+          padding: 2px 10px;
+          display: inline-block;
+          font-weight: 600;
+        }
+        .sets-won-box {
+          background: ${COLORS.accent};
+          color: #fff;
+          border-radius: 6px;
+          font-size: 0.95em;
+          font-weight: 700;
+          padding: 1px 7px;
+          display: inline-block;
+        }
+        .vs {
+          color: ${COLORS.primary};
+          font-weight: 800;
+          margin: 0 2px;
+        }
+        .games-box {
+          background: ${COLORS.background};
+          border-radius: 0 0 8px 8px;
+          font-size: 0.98rem;
+          font-weight: 600;
+          width: 100%;
+          text-align: center;
+          color: ${COLORS.accent};
+          min-height: 22px;
+          margin-bottom: 2px;
+        }
+        .date-box {
+          color: ${COLORS.textLight};
+        }
+        @media (max-width: 700px) {
+          .result-row {
+            max-width: 98vw;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
