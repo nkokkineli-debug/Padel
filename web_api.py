@@ -225,12 +225,44 @@ async def register_match_result(request: Request):
                 return {"error": f"Each couple must have exactly 2 player IDs: {couple}"}
             couples_ids.append(sorted_couple)
 
+        # --- Fetch all matches for this group and day ---
+        existing_matches = supabase.table("matches") \
+            .select("team1,team2,next_match_id") \
+            .eq("group_id", group_id) \
+            .eq("match_date", match_date) \
+            .execute().data
+
+        # --- Duplicate couple combination check for the same day ---
         for res in results:
             team1_ids = sorted(res["team1"])
             team2_ids = sorted(res["team2"])
             if len(team1_ids) != 2 or len(team2_ids) != 2:
                 return {"error": "Each team must have exactly 2 player IDs."}
 
+            for match in existing_matches:
+                # Parse team1/team2 if stored as string
+                import json
+                m_team1 = match.get("team1", [])
+                m_team2 = match.get("team2", [])
+                if isinstance(m_team1, str):
+                    try: m_team1 = json.loads(m_team1)
+                    except Exception: m_team1 = []
+                if isinstance(m_team2, str):
+                    try: m_team2 = json.loads(m_team2)
+                    except Exception: m_team2 = []
+
+                # Check for duplicate (order-insensitive)
+                if ((sorted(m_team1) == team1_ids and sorted(m_team2) == team2_ids) or
+                    (sorted(m_team1) == team2_ids and sorted(m_team2) == team1_ids)):
+                    # If updating itself, allow
+                    if match_id and str(match.get("next_match_id")) == str(match_id):
+                        continue
+                    return {"error": "This couple combination already exists for this day."}
+
+        # --- Insert results ---
+        for res in results:
+            team1_ids = sorted(res["team1"])
+            team2_ids = sorted(res["team2"])
             insert_data = {
                 "group_id": group_id,
                 "match_date": match_date,
@@ -255,7 +287,7 @@ async def register_match_result(request: Request):
     except Exception as e:
         print("Error in /register_match_result:", e)
         return JSONResponse({"error": str(e)}, status_code=500)
-
+    
 @app.post("/update_match_result")
 async def update_match_result(request: Request):
     data = await request.json()
