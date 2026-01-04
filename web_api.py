@@ -10,7 +10,7 @@ import main  # <-- Import your business logic and supabase client
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    ##allow_origins=["https://padel-chi.vercel.app"],
+    ##allow_origins=["https://padel-chi.vercel.appss"],
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
