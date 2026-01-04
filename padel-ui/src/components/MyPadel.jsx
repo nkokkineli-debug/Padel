@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const COLORS = {
   primary: "#6D55FF",
@@ -11,17 +11,38 @@ const COLORS = {
   border: "#E5E7EB",
 };
 
-function ResultRow({ team1, team2, score1, score2, setsString }) {
+function ResultRow({ team1, team2, score1, score2, sets = [], setsString }) {
   return (
     <div className="result-row">
       <div className="row-content">
-        <span className="player-box">{team1}</span>
+        <span className="player-box">
+          <span className="player-name left">{team1}</span>
+        </span>
         <span className="sets-won-box">{score1}</span>
         <span className="vs">vs</span>
         <span className="sets-won-box">{score2}</span>
-        <span className="player-box">{team2}</span>
+        <span className="player-box">
+          <span className="player-name right">{team2}</span>
+        </span>
       </div>
-      <div className="games-box">{setsString}</div>
+      <div className="sets-row">
+        {sets && sets.length > 0 && sets.map((set, idx) => (
+          <span className="set-box" key={idx}>
+            {set[1]}<span style={{margin: "0 2px"}}>-</span>{set[2]}
+          </span>
+        ))}
+      </div>
+      <div className="games-box">
+        {setsString
+          ? setsString
+          : sets && sets.length > 0
+            ? sets.map((set, idx) => (
+                <span key={idx}>
+                  {set[1]}-{set[2]}{idx < sets.length - 1 ? ', ' : ''}
+                </span>
+              ))
+            : null}
+      </div>
     </div>
   );
 }
@@ -29,10 +50,15 @@ function ResultRow({ team1, team2, score1, score2, setsString }) {
 function FixtureRow({ team1, team2, date }) {
   return (
     <div className="result-row">
-      <div className="row-content">
-        <span className="player-box">{team1}</span>
+      
+<div className="row-content">
+        <span className="player-box">
+          <span className="player-name left">{team1}</span>
+        </span>
         <span className="vs">vs</span>
-        <span className="player-box">{team2}</span>
+        <span className="player-box">
+          <span className="player-name right">{team2}</span>
+        </span>
       </div>
       <div className="games-box date-box">{date}</div>
     </div>
@@ -44,6 +70,8 @@ export default function MyPadel({
   lastGames = [],
   playerMap = {},
 }) {
+  const [showAll, setShowAll] = useState(false);
+
   const getPlayerName = id => playerMap[id] || id;
 
   const fixtures = nextMatches.map((m, idx) => {
@@ -59,21 +87,25 @@ export default function MyPadel({
     );
   });
 
-  const results = lastGames.map((g, idx) => {
+  // Show last 10 by default, all if showAll is true
+  const resultsToShow = showAll ? lastGames : lastGames.slice(0, 10);
+
+  const results = resultsToShow.map((g, idx) => {
     const team1 = Array.isArray(g.team1)
       ? g.team1.map(getPlayerName).join(' & ')
       : (typeof g.team1 === 'string' ? getPlayerName(g.team1) : '');
     const team2 = Array.isArray(g.team2)
       ? g.team2.map(getPlayerName).join(' & ')
       : (typeof g.team2 === 'string' ? getPlayerName(g.team2) : '');
+    const sets = g.sets || [];
     return (
       <ResultRow
         key={g.id || idx}
-
         team1={team1}
         team2={team2}
         score1={g.score1}
         score2={g.score2}
+        sets={sets}
         setsString={g.sets_string}
       />
     );
@@ -101,10 +133,35 @@ export default function MyPadel({
           </div>
         ) : results}
       </div>
+      {lastGames.length > 10 && (
+        <div style={{ textAlign: "center", marginTop: 8 }}>
+          <button
+            className="btn-view-all"
+            onClick={() => setShowAll(v => !v)}
+          >
+            {showAll ? "Show Less" : "View All"}
+          </button>
+        </div>
+      )}
       <footer style={{ marginTop: 16, textAlign: 'center', color: COLORS.textLight, fontSize: 14 }}>
         © 2025 PadelPals. All rights reserved.
       </footer>
       <style>{`
+        .btn-view-all {
+          background: ${COLORS.primary};
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          padding: 8px 22px;
+          font-size: 1rem;
+          font-weight: 600;
+          cursor: pointer;
+          margin: 0 auto;
+          transition: background 0.2s;
+        }
+        .btn-view-all:hover {
+          background: ${COLORS.accent};
+        }
         .rows-list {
           display: flex;
           flex-direction: column;
@@ -114,7 +171,7 @@ export default function MyPadel({
         }
         .result-row {
           width: 100%;
-          max-width: 500px;
+          max-width: 700px;
           margin: 0;
           padding: 0;
         }
@@ -132,11 +189,36 @@ export default function MyPadel({
           padding: 0 0 0 0;
         }
         .player-box {
-          background: ${COLORS.background};
+          background: ${COLORS.primary};
+          color: #fff;
           border-radius: 8px;
-          padding: 2px 10px;
+          padding: 2px 0;
           display: inline-block;
           font-weight: 600;
+          width: 220px;
+          text-align: center;
+          margin: 0 2px;
+          font-size: 1rem;
+          overflow: hidden;
+        }
+        .player-name.left {
+          display: block;
+          text-align: right;
+          width: 100%;
+          padding-left: 0px;
+          padding-right: 10px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .player-name.right {
+          display: block;
+          text-align: left;
+          width: 100%;
+          padding-left: 10px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .sets-won-box {
           background: ${COLORS.accent};
@@ -144,7 +226,7 @@ export default function MyPadel({
           border-radius: 6px;
           font-size: 0.95em;
           font-weight: 700;
-          padding: 1px 7px;
+          padding: 1px 10px;
           display: inline-block;
         }
         .vs {
@@ -152,23 +234,57 @@ export default function MyPadel({
           font-weight: 800;
           margin: 0 2px;
         }
-        .games-box {
-          background: ${COLORS.background};
-          border-radius: 0 0 8px 8px;
-          font-size: 0.98rem;
+        .sets-row {
+          display: flex;
+          justify-content: center;
+          gap: 8px;
+          margin: 0;
+          background: transparent;
+        }
+        .set-box {
+          background: #fff;
+          border: 2px solid ${COLORS.primary};
+          color: ${COLORS.primary};
+          border-radius: 6px;
+          padding: 1px 18px;
+          font-size: 1.05rem;
           font-weight: 600;
-          width: 100%;
+          min-width: 48px;
           text-align: center;
-          color: ${COLORS.accent};
-          min-height: 22px;
-          margin-bottom: 2px;
+        }
+        .games-box {
+          background: #fff;
+          border: 2px solid ${COLORS.primary};
+          border-radius: 8px;
+          font-size: 1.05rem;
+          font-weight: 600;
+          width: fit-content;
+          min-width: 80px;
+          margin: 6px auto 10px auto;
+          color: ${COLORS.primary};
+          text-align: center;
+          padding: 2px 18px;
+          display: flex;
+          justify-content: center;
         }
         .date-box {
           color: ${COLORS.textLight};
+          border-color: ${COLORS.primary};
         }
-        @media (max-width: 700px) {
+        @media (max-width: 900px) {
           .result-row {
             max-width: 98vw;
+          }
+          .player-box {
+            width: 38vw;
+            min-width: 90px;
+            max-width: 180px;
+            font-size: 0.97rem;
+            padding: 2px 0;
+          }
+          .set-box {
+            min-width: 36px;
+            padding: 1px 8px;
           }
         }
       `}</style>
