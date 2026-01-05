@@ -11,56 +11,48 @@ const COLORS = {
   border: "#E5E7EB",
 };
 
-function ResultRow({ team1, team2, score1, score2, sets = [], setsString }) {
+function ResultRow({ team1, team2, score1, score2, setsString, date }) {
   return (
-    <div className="result-row">
-      <div className="row-content">
-        <span className="player-box">
-          <span className="player-name left">{team1}</span>
-        </span>
-        <span className="sets-won-box">{score1}</span>
-        <span className="vs">vs</span>
-        <span className="sets-won-box">{score2}</span>
-        <span className="player-box">
-          <span className="player-name right">{team2}</span>
-        </span>
-      </div>
-      <div className="sets-row">
-        {sets && sets.length > 0 && sets.map((set, idx) => (
-          <span className="set-box" key={idx}>
-            {set[0]}<span style={{margin: "0 2px"}}>-</span>{set[1]}
+    <>
+      <div className="result-row">
+        <div className="match-date-row">{date}</div>
+        <div className="row-content">
+          <span className="player-box">
+            <span className="player-name">{team1}</span>
           </span>
-        ))}
+          <span className="sets-won-box">{score1}</span>
+          <span className="vs">vs</span>
+          <span className="sets-won-box">{score2}</span>
+          <span className="player-box">
+            <span className="player-name">{team2}</span>
+          </span>
+        </div>
+        <div className="sets-row">
+          <span className="sets-string-box">{setsString}</span>
+        </div>
       </div>
-      <div className="games-box">
-        {setsString
-          ? setsString
-          : sets && sets.length > 0
-            ? sets.map((set, idx) => (
-                <span key={idx}>
-                  {set[0]}-{set[1]}{idx < sets.length - 1 ? ', ' : ''}
-                </span>
-              ))
-            : null}
-      </div>
-    </div>
+      <div className="match-divider" />
+    </>
   );
 }
 
 function FixtureRow({ team1, team2, date }) {
   return (
-    <div className="result-row">
-      <div className="row-content">
-        <span className="player-box">
-          <span className="player-name left">{team1}</span>
-        </span>
-        <span className="vs">vs</span>
-        <span className="player-box">
-          <span className="player-name right">{team2}</span>
-        </span>
+    <>
+      <div className="result-row">
+        <div className="match-date-row">{date}</div>
+        <div className="row-content">
+          <span className="player-box">
+            <span className="player-name">{team1}</span>
+          </span>
+          <span className="vs">vs</span>
+          <span className="player-box">
+            <span className="player-name">{team2}</span>
+          </span>
+        </div>
       </div>
-      <div className="games-box date-box">{date}</div>
-    </div>
+      <div className="match-divider" />
+    </>
   );
 }
 
@@ -96,7 +88,6 @@ export default function MyPadel({
     const team2 = Array.isArray(g.team2)
       ? g.team2.map(getPlayerName).join(' & ')
       : (typeof g.team2 === 'string' ? getPlayerName(g.team2) : '');
-    const sets = g.sets || [];
     return (
       <ResultRow
         key={g.id || idx}
@@ -104,8 +95,8 @@ export default function MyPadel({
         team2={team2}
         score1={g.score1}
         score2={g.score2}
-        sets={sets}
         setsString={g.sets_string}
+        date={g.date}
       />
     );
   });
@@ -174,6 +165,13 @@ export default function MyPadel({
           margin: 0;
           padding: 0;
         }
+        .match-date-row {
+          text-align: center;
+          color: ${COLORS.textLight};
+          font-size: 0.95rem;
+          margin-bottom: 2px;
+          min-height: 22px;
+        }
         .row-content {
           display: flex;
           align-items: center;
@@ -186,46 +184,32 @@ export default function MyPadel({
           color: ${COLORS.text};
           min-height: 36px;
           padding: 0 0 0 0;
-          flex-wrap: wrap;
         }
         .player-box {
-          width: 260px;           /* Fixed width */
+          flex: 1 1 0;
           min-width: 0;
-          max-width: 100%;
-          padding: 2px 12px;
-          background: #6D55FF;
+          max-width: 350px;
+          height: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: ${COLORS.primary};
           color: #fff;
           border-radius: 8px;
-          display: inline-block;
           font-weight: 600;
           text-align: center;
           margin: 0 2px;
           font-size: 1rem;
-          /* Height will auto-adjust */
-          word-break: break-word;
-          white-space: normal;
-          overflow: visible;
+          overflow: hidden;
         }
-        .player-name.left {
-          display: block;
-          text-align: right;
+        .player-name {
           width: 100%;
-          padding-left: 0px;
-          padding-right: 10px;
-          white-space: normal;
-          overflow: visible;
-          text-overflow: unset;
-          word-break: break-word;
-        }
-        .player-name.right {
+          text-align: center;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          line-height: 1.2;
           display: block;
-          text-align: left;
-          width: 100%;
-          padding-left: 10px;
-          white-space: normal;
-          overflow: visible;
-          text-overflow: unset;
-          word-break: break-word;
         }
         .sets-won-box {
           background: ${COLORS.accent};
@@ -244,11 +228,10 @@ export default function MyPadel({
         .sets-row {
           display: flex;
           justify-content: center;
-          gap: 8px;
           margin: 0;
           background: transparent;
         }
-        .set-box {
+        .sets-string-box {
           background: #fff;
           border: 2px solid ${COLORS.primary};
           color: ${COLORS.primary};
@@ -260,40 +243,32 @@ export default function MyPadel({
           text-align: center;
         }
         .games-box {
-          background: #fff;
-          border: 2px solid ${COLORS.primary};
-          border-radius: 8px;
-          font-size: 1.05rem;
-          font-weight: 600;
-          width: fit-content;
-          min-width: 80px;
-          margin: 6px auto 10px auto;
-          color: ${COLORS.primary};
-          text-align: center;
-          padding: 2px 18px;
-          display: flex;
-          justify-content: center;
+          display: none;
         }
         .date-box {
           color: ${COLORS.textLight};
           border-color: ${COLORS.primary};
         }
+        .match-divider {
+          width: 100%;
+          max-width: 900px;
+          height: 1px;
+          background: ${COLORS.border};
+          margin: 12px 0 16px 0;
+        }
         @media (max-width: 900px) {
           .result-row {
             max-width: 98vw;
           }
+          .row-content {
+            gap: 2px;
+          }
           .player-box {
-            width: 100%;
-            min-width: 90px;
-            max-width: 100vw;
+            max-width: 48vw;
+            min-width: 0;
+            height: 38px;
             font-size: 0.97rem;
             padding: 2px 4px;
-            word-break: break-word;
-            white-space: normal;
-            display: block;
-          }
-          .row-content {
-            flex-wrap: wrap;
           }
         }
       `}</style>
