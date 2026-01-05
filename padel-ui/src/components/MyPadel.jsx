@@ -189,13 +189,11 @@ export default function MyPadel({
           flex-wrap: wrap;
         }
         .player-box {
-          min-width: 220px;
-          max-width: 420px;
-          width: auto;
+          width: 260px;           /* Fixed width */
+          min-width: 0;
+          max-width: 100%;
           padding: 2px 12px;
-          word-break: break-word;
-          white-space: normal;
-          background: ${COLORS.primary};
+          background: #6D55FF;
           color: #fff;
           border-radius: 8px;
           display: inline-block;
@@ -203,7 +201,10 @@ export default function MyPadel({
           text-align: center;
           margin: 0 2px;
           font-size: 1rem;
-          overflow: hidden;
+          /* Height will auto-adjust */
+          word-break: break-word;
+          white-space: normal;
+          overflow: visible;
         }
         .player-name.left {
           display: block;
