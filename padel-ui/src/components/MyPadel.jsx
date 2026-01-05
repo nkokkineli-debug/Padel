@@ -28,7 +28,7 @@ function ResultRow({ team1, team2, score1, score2, sets = [], setsString }) {
       <div className="sets-row">
         {sets && sets.length > 0 && sets.map((set, idx) => (
           <span className="set-box" key={idx}>
-            {set[1]}<span style={{margin: "0 2px"}}>-</span>{set[2]}
+            {set[0]}<span style={{margin: "0 2px"}}>-</span>{set[1]}
           </span>
         ))}
       </div>
@@ -38,7 +38,7 @@ function ResultRow({ team1, team2, score1, score2, sets = [], setsString }) {
           : sets && sets.length > 0
             ? sets.map((set, idx) => (
                 <span key={idx}>
-                  {set[1]}-{set[2]}{idx < sets.length - 1 ? ', ' : ''}
+                  {set[0]}-{set[1]}{idx < sets.length - 1 ? ', ' : ''}
                 </span>
               ))
             : null}
@@ -50,8 +50,7 @@ function ResultRow({ team1, team2, score1, score2, sets = [], setsString }) {
 function FixtureRow({ team1, team2, date }) {
   return (
     <div className="result-row">
-      
-<div className="row-content">
+      <div className="row-content">
         <span className="player-box">
           <span className="player-name left">{team1}</span>
         </span>
@@ -171,7 +170,7 @@ export default function MyPadel({
         }
         .result-row {
           width: 100%;
-          max-width: 700px;
+          max-width: 900px;
           margin: 0;
           padding: 0;
         }
@@ -187,15 +186,20 @@ export default function MyPadel({
           color: ${COLORS.text};
           min-height: 36px;
           padding: 0 0 0 0;
+          flex-wrap: wrap;
         }
         .player-box {
+          min-width: 220px;
+          max-width: 420px;
+          width: auto;
+          padding: 2px 12px;
+          word-break: break-word;
+          white-space: normal;
           background: ${COLORS.primary};
           color: #fff;
           border-radius: 8px;
-          padding: 2px 0;
           display: inline-block;
           font-weight: 600;
-          width: 220px;
           text-align: center;
           margin: 0 2px;
           font-size: 1rem;
@@ -207,18 +211,20 @@ export default function MyPadel({
           width: 100%;
           padding-left: 0px;
           padding-right: 10px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          white-space: normal;
+          overflow: visible;
+          text-overflow: unset;
+          word-break: break-word;
         }
         .player-name.right {
           display: block;
           text-align: left;
           width: 100%;
           padding-left: 10px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          white-space: normal;
+          overflow: visible;
+          text-overflow: unset;
+          word-break: break-word;
         }
         .sets-won-box {
           background: ${COLORS.accent};
@@ -276,15 +282,17 @@ export default function MyPadel({
             max-width: 98vw;
           }
           .player-box {
-            width: 38vw;
+            width: 100%;
             min-width: 90px;
-            max-width: 180px;
+            max-width: 100vw;
             font-size: 0.97rem;
-            padding: 2px 0;
+            padding: 2px 4px;
+            word-break: break-word;
+            white-space: normal;
+            display: block;
           }
-          .set-box {
-            min-width: 36px;
-            padding: 1px 8px;
+          .row-content {
+            flex-wrap: wrap;
           }
         }
       `}</style>
