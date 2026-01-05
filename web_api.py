@@ -592,9 +592,12 @@ def get_nickname(username: str):
 
 # --- Last Games Endpoint ---
 @app.get("/last_games")
-def last_games(group_id: str):
+def last_games(group_id: str, limit: int = 10):
     try:
-        matches = supabase.table("matches").select("*").eq("group_id", group_id).order("match_date", desc=True).limit(5).execute().data
+        matches = supabase.table("matches").select("*") \
+            .eq("group_id", group_id) \
+            .order("match_date", desc=True) \
+            .limit(limit).execute().data
         players = supabase.table("players").select("id, name").eq("group_id", group_id).execute().data
         id_to_name = {p["id"]: p["name"] for p in players}
 
