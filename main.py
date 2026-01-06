@@ -315,7 +315,7 @@ def update_ratings_for_group(group_id):
                     cstats["wins"] += 1
                 cstats["points"] += team2_total_awarded * 2
 
-    # Update player ratings in DB
+    # Update player ratings in DBs
     for player, stats in player_stats.items():
         try:
             supabase.table("players").update({
