@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from typing import Optional
 from itertools import combinations
 from fastapi.responses import JSONResponse
+from main import update_ratings_for_group
 import uuid
 import main  # <-- Import your business logic and supabase client
 
@@ -626,6 +627,9 @@ def last_games(group_id: str, limit: int = 10):
                 except Exception:
                     sets = []
 
+            # Ensure sets is a list of [int, int]
+            sets = [s if isinstance(s, list) and len(s) == 2 else [0, 0] for s in sets]
+
             score1 = sum(1 for s in sets if s[0] > s[1]) if sets else None
             score2 = sum(1 for s in sets if s[1] > s[0]) if sets else None
 
@@ -641,10 +645,143 @@ def last_games(group_id: str, limit: int = 10):
                 "team2": team2_names,
                 "score1": score1,
                 "score2": score2,
+                "sets": sets,
                 "sets_string": sets_string,
                 "result": m.get("result", "")
             })
         return {"games": result}
     except Exception as e:
         print("Error in /last_games:", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# --- all Games Endpoint ---
+@app.get("/matches")
+def get_matches(group_id: Optional[str] = Query(None)):
+    try:
+        query = supabase.table("matches").select("*")
+        if group_id:
+            query = query.eq("group_id", group_id)
+        matches = query.execute().data
+        players = supabase.table("players").select("id, name").eq("group_id", group_id).execute().data
+        id_to_name = {p["id"]: p["name"] for p in players}
+        result = []
+        for m in matches:
+            import json
+            team1 = m.get("team1", [])
+            team2 = m.get("team2", [])
+            if isinstance(team1, str):
+                try: team1 = json.loads(team1)
+                except Exception: team1 = []
+            if isinstance(team2, str):
+                try: team2 = json.loads(team2)
+                except Exception: team2 = []
+            sets = m.get("sets", [])
+            if isinstance(sets, str):
+                try: sets = json.loads(sets)
+                except Exception: sets = []
+            sets = [s if isinstance(s, list) and len(s) == 2 else [0, 0] for s in sets]
+            sets_string = ', '.join(f"{s[0]}-{s[1]}" for s in sets) if sets else ""
+            result.append({
+                "id": m.get("id"),
+                "date": m.get("match_date"),
+                "team1": [id_to_name.get(pid, pid) for pid in team1],
+                "team2": [id_to_name.get(pid, pid) for pid in team2],
+                "team1_raw": team1,  # <-- raw names/IDs
+                "team2_raw": team2,
+                "sets": sets,
+                "sets_string": sets_string,
+                "score1": sum(1 for s in sets if s[0] > s[1]) if sets else None,
+                "score2": sum(1 for s in sets if s[1] > s[0]) if sets else None,
+            })
+        return {"matches": result}
+    except Exception as e:
+        print("Error in /matches:", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/all_results")
+def all_results(group_id: str, limit: int = 100):
+    try:
+        matches = supabase.table("matches").select("*") \
+            .eq("group_id", group_id) \
+            .order("match_date", desc=True) \
+            .limit(limit).execute().data
+        players = supabase.table("players").select("id, name").eq("group_id", group_id).execute().data
+        id_to_name = {p["id"]: p["name"] for p in players}
+        result = []
+        for m in matches:
+            import json
+            team1 = m.get("team1", [])
+            team2 = m.get("team2", [])
+            if isinstance(team1, str):
+                try: team1 = json.loads(team1)
+                except Exception: team1 = []
+            if isinstance(team2, str):
+                try: team2 = json.loads(team2)
+                except Exception: team2 = []
+            sets = m.get("sets", [])
+            if isinstance(sets, str):
+                try: sets = json.loads(sets)
+                except Exception: sets = []
+            sets = [s if isinstance(s, list) and len(s) == 2 else [0, 0] for s in sets]
+            sets_string = ', '.join(f"{s[0]}-{s[1]}" for s in sets) if sets else ""
+            result.append({
+                "id": m.get("id"),
+                "date": m.get("match_date"),
+                "team1": [id_to_name.get(pid, pid) for pid in team1],
+                "team2": [id_to_name.get(pid, pid) for pid in team2],
+                "team1_raw": team1,  # <-- raw names/IDs
+                "team2_raw": team2,
+                "sets": sets,
+                "sets_string": sets_string,
+                "score1": sum(1 for s in sets if s[0] > s[1]) if sets else None,
+                "score2": sum(1 for s in sets if s[1] > s[0]) if sets else None,
+            })
+        return {"games": result}
+    except Exception as e:
+        print("Error in /all_results:", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+# --- edit Games Endpoint ---
+@app.post("/edit_result")
+async def edit_result(request: Request):
+    data = await request.json()
+    match_id = data.get("match_id")
+    group_id = data.get("group_id")
+    sets = data.get("sets")
+    team1 = data.get("team1")
+    team2 = data.get("team2")
+    try:
+        supabase.table("matches").update({
+            "sets": sets,
+            "team1": team1,
+            "team2": team2
+        }).eq("id", match_id).execute()
+        update_ratings_for_group(group_id)
+        return {"message": "Result updated and points recalculated."}
+    except Exception as e:
+        print("Error in /edit_result:", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+# --- Delete Games Endpoint ---
+@app.post("/delete_result")
+async def delete_result(request: Request):
+    data = await request.json()
+    match_id = data.get("match_id")
+    group_id = data.get("group_id")
+    try:
+        supabase.table("matches").delete().eq("id", match_id).execute()
+        update_ratings_for_group(group_id)
+        return {"message": "Result deleted and points recalculated."}
+    except Exception as e:
+        print("Error in /delete_result:", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/recalculate_points")
+def recalculate_points(group_id: str):
+    try:
+        update_ratings_for_group(group_id)
+        return {"message": "Points recalculated successfully."}
+    except Exception as e:
+        print("Error in /recalculate_points:", e)
         return JSONResponse({"error": str(e)}, status_code=500)
