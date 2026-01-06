@@ -662,24 +662,35 @@ def get_matches(group_id: Optional[str] = Query(None)):
         query = supabase.table("matches").select("*")
         if group_id:
             query = query.eq("group_id", group_id)
+        # Ensure matches are ordered by match_date ascending (oldest to newest)
+        query = query.order("match_date", desc=False)
         matches = query.execute().data
+
+        # Get player names for id->name mapping
         players = supabase.table("players").select("id, name").eq("group_id", group_id).execute().data
         id_to_name = {p["id"]: p["name"] for p in players}
+
         result = []
         for m in matches:
             import json
             team1 = m.get("team1", [])
             team2 = m.get("team2", [])
             if isinstance(team1, str):
-                try: team1 = json.loads(team1)
-                except Exception: team1 = []
+                try:
+                    team1 = json.loads(team1)
+                except Exception:
+                    team1 = []
             if isinstance(team2, str):
-                try: team2 = json.loads(team2)
-                except Exception: team2 = []
+                try:
+                    team2 = json.loads(team2)
+                except Exception:
+                    team2 = []
             sets = m.get("sets", [])
             if isinstance(sets, str):
-                try: sets = json.loads(sets)
-                except Exception: sets = []
+                try:
+                    sets = json.loads(sets)
+                except Exception:
+                    sets = []
             sets = [s if isinstance(s, list) and len(s) == 2 else [0, 0] for s in sets]
             sets_string = ', '.join(f"{s[0]}-{s[1]}" for s in sets) if sets else ""
             result.append({
@@ -687,7 +698,7 @@ def get_matches(group_id: Optional[str] = Query(None)):
                 "date": m.get("match_date"),
                 "team1": [id_to_name.get(pid, pid) for pid in team1],
                 "team2": [id_to_name.get(pid, pid) for pid in team2],
-                "team1_raw": team1,  # <-- raw names/IDs
+                "team1_raw": team1,  # raw names/IDs
                 "team2_raw": team2,
                 "sets": sets,
                 "sets_string": sets_string,
@@ -698,7 +709,7 @@ def get_matches(group_id: Optional[str] = Query(None)):
     except Exception as e:
         print("Error in /matches:", e)
         return JSONResponse({"error": str(e)}, status_code=500)
-
+    
 @app.get("/all_results")
 def all_results(group_id: str, limit: int = 100):
     try:
