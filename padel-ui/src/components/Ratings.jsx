@@ -10,7 +10,8 @@ function normalizeName(name) {
 function playerInTeam(player, team) {
   if (!player) return false;
   if (!Array.isArray(team)) return false;
-  return team.includes(player.id) || team.includes(player.email) || team.includes(player.name);
+  const playerName = normalizeName(player.name);
+  return team.map(normalizeName).includes(playerName);
 }
 
 function getPlayerForm(player, matches) {
@@ -25,6 +26,9 @@ function getPlayerForm(player, matches) {
 
     if (!Array.isArray(team1) || !Array.isArray(team2) || !Array.isArray(sets) || sets.length === 0) return;
 
+    const team1Norm = team1.map(normalizeName);
+    const team2Norm = team2.map(normalizeName);
+
     const team1Sets = sets.reduce((acc, s) => acc + (s[0] > s[1] ? 1 : 0), 0);
     const team2Sets = sets.reduce((acc, s) => acc + (s[1] > s[0] ? 1 : 0), 0);
 
@@ -32,9 +36,11 @@ function getPlayerForm(player, matches) {
     if (team1Sets > team2Sets) win = "team1";
     else if (team2Sets > team1Sets) win = "team2";
 
-    if (playerInTeam(player, team1)) {
+    const playerName = normalizeName(player.name);
+
+    if (team1Norm.includes(playerName)) {
       results.push(win === "team1" ? "W" : "L");
-    } else if (playerInTeam(player, team2)) {
+    } else if (team2Norm.includes(playerName)) {
       results.push(win === "team2" ? "W" : "L");
     }
   });
@@ -78,6 +84,8 @@ function getPlayerAllTimeWinRatio(player, matches) {
 
 function getCoupleForm(player1Name, player2Name, matches) {
   const results = [];
+  const p1 = normalizeName(player1Name);
+  const p2 = normalizeName(player2Name);
   matches.forEach(m => {
     let team1 = m.team1;
     let team2 = m.team2;
@@ -88,6 +96,9 @@ function getCoupleForm(player1Name, player2Name, matches) {
 
     if (!Array.isArray(team1) || !Array.isArray(team2) || !Array.isArray(sets) || sets.length === 0) return;
 
+    const team1Norm = team1.map(normalizeName);
+    const team2Norm = team2.map(normalizeName);
+
     const team1Sets = sets.reduce((acc, s) => acc + (s[0] > s[1] ? 1 : 0), 0);
     const team2Sets = sets.reduce((acc, s) => acc + (s[1] > s[0] ? 1 : 0), 0);
 
@@ -95,9 +106,9 @@ function getCoupleForm(player1Name, player2Name, matches) {
     if (team1Sets > team2Sets) win = "team1";
     else if (team2Sets > team1Sets) win = "team2";
 
-    if (team1.includes(player1Name) && team1.includes(player2Name)) {
+    if (team1Norm.includes(p1) && team1Norm.includes(p2)) {
       results.push(win === "team1" ? "W" : "L");
-    } else if (team2.includes(player1Name) && team2.includes(player2Name)) {
+    } else if (team2Norm.includes(p1) && team2Norm.includes(p2)) {
       results.push(win === "team2" ? "W" : "L");
     }
   });
@@ -318,7 +329,8 @@ export default function Ratings({ selectedGroup }) {
           background: #10b981;
           color: #fff;
         }
-        .btn-green:disabled {
+        .btn-green
+:disabled {
           background: #a7f3d0;
           color: #fff;
           cursor: not-allowed;
