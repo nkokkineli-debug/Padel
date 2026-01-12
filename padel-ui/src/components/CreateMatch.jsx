@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import PlayerDropdown from './PlayerDropdown';
 import { FiTrash2 } from 'react-icons/fi';
 
-//const API_BASE = 'http://127.0.0.1:8000';
-const API_BASE = "https://padel-4apg.onrender.com";
+const API_BASE = 'http://127.0.0.1:8000';
+//const API_BASE = "https://padel-4apg.onrender.com";
 
 export default function CreateMatch({
   user,
@@ -107,6 +107,10 @@ export default function CreateMatch({
     setProposeLoading(prev => ({ ...prev, [matchDate]: false }));
   };
 
+  // --- ADDED: Calculate end of today ---
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+
   return (
     <div className="card">
       <div className="content-header"><h2>Schedule & Register for Next Match</h2></div>
@@ -143,7 +147,7 @@ export default function CreateMatch({
       <h4 style={{ fontWeight: 700, fontSize: 22, margin: '32px 0 18px 0' }}>Upcoming Matches</h4>
       <div className="upcoming-matches-list">
         {nextMatches
-          .filter(match => new Date(match.match_date) > new Date())
+          .filter(match => new Date(match.match_date) <= endOfToday)
           .map(match => (
             <div className="match-card" key={match.id}>
               <button
