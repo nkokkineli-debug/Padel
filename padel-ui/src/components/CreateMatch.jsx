@@ -107,9 +107,9 @@ export default function CreateMatch({
     setProposeLoading(prev => ({ ...prev, [matchDate]: false }));
   };
 
-  // --- ADDED: Calculate end of today ---
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
+  // --- Calculate start of today ---
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
 
   return (
     <div className="card">
@@ -147,7 +147,7 @@ export default function CreateMatch({
       <h4 style={{ fontWeight: 700, fontSize: 22, margin: '32px 0 18px 0' }}>Upcoming Matches</h4>
       <div className="upcoming-matches-list">
         {nextMatches
-          .filter(match => new Date(match.match_date) <= endOfToday)
+          .filter(match => new Date(match.match_date) >= startOfToday)
           .map(match => (
             <div className="match-card" key={match.id}>
               <button
