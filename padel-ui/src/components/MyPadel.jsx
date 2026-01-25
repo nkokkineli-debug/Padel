@@ -78,7 +78,7 @@ export default function MyPadel({
     );
   });
 
-  // Show last 10 by default, all if showAll is true
+  // Show last 10 by default, all if showAll is true or if there are 10 or fewer games
   const resultsToShow = showAll ? lastGames : lastGames.slice(0, 10);
 
   const results = resultsToShow.map((g, idx) => {
