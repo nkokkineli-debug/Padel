@@ -8,10 +8,11 @@ import CreateMatch from './components/CreateMatch';
 import ResultsPage from './components/ResultsPage';
 import Ratings from './components/Ratings';
 import Profile from './components/Profile';
+import Results from "./components/Results";
 import { FiUserPlus, FiTrash2, FiCopy, FiMenu, FiX } from 'react-icons/fi';
 
-//const API_BASE = 'http://127.0.0.1:8000';
-const API_BASE = 'https://padel-4apg.onrender.com';
+const API_BASE = 'http://127.0.0.1:8000';
+//const API_BASE = 'https://padel-4apg.onrender.com';
 
 
 function getAllPairs(arr) {
@@ -731,6 +732,10 @@ view === 'login' ? 'Sign in to continue' : 'Create your account'}</p>
 
         {menuView === 'profile' && (
           <Profile user={user} />
+        )}
+
+        {menuView === "results" && (
+          <Results selectedGroup={selectedGroup} />
         )}
 
         {menuView === 'teams' && (

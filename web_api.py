@@ -2,11 +2,29 @@ from fastapi import FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from typing import Optional
+from fastapi import Query
 from itertools import combinations
 from fastapi.responses import JSONResponse
 from main import update_ratings_for_group
 import uuid
 import main  # <-- Import your business logic and supabase client
+import json
+
+
+def normalize_name(name: str) -> str:
+    return (name or "").strip().lower()
+
+def safe_json_list(value):
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, list) else []
+        except Exception:
+            return []
+    return []
+
 
 app = FastAPI()
 app.add_middleware(
@@ -773,6 +791,91 @@ async def edit_result(request: Request):
     except Exception as e:
         print("Error in /edit_result:", e)
         return JSONResponse({"error": str(e)}, status_code=500)
+    
+@app.get("/matches_paged")
+def matches_paged(
+    group_id: str,
+    page: int = 1,
+    limit: int = 10,
+    player_name: Optional[str] = Query(None),
+):
+    try:
+        if page < 1:
+            page = 1
+        if limit < 1 or limit > 50:
+            limit = 10
+
+        # We filter in Python because team1/team2 are stored as JSON strings.
+        # For "all results for this player", we need total count of filtered set.
+        # Fetch a reasonable number (increase later if needed).
+        fetch_limit = 2000
+
+        resp = (
+            supabase.table("matches")
+            .select("*")
+            .eq("group_id", group_id)
+            .order("match_date", desc=True)
+            .limit(fetch_limit)
+            .execute()
+        )
+        all_matches = resp.data or []
+
+        needle = normalize_name(player_name) if player_name else ""
+
+        filtered = []
+        for m in all_matches:
+            team1 = safe_json_list(m.get("team1"))
+            team2 = safe_json_list(m.get("team2"))
+            sets = safe_json_list(m.get("sets"))
+
+            team1_norm = [normalize_name(x) for x in team1]
+            team2_norm = [normalize_name(x) for x in team2]
+
+            if needle:
+                if needle not in team1_norm and needle not in team2_norm:
+                    continue
+
+            # compute sets_string + score
+            sets_clean = []
+            for s in sets:
+                if isinstance(s, list) and len(s) == 2:
+                    try:
+                        sets_clean.append([int(s[0]), int(s[1])])
+                    except Exception:
+                        pass
+
+            sets_string = ", ".join(f"{s[0]}-{s[1]}" for s in sets_clean) if sets_clean else ""
+            score1 = sum(1 for s in sets_clean if s[0] > s[1]) if sets_clean else None
+            score2 = sum(1 for s in sets_clean if s[1] > s[0]) if sets_clean else None
+
+            filtered.append({
+                "id": m.get("id"),
+                "date": m.get("match_date"),
+                "team1": team1,  # keep original names
+                "team2": team2,
+                "sets": sets_clean,
+                "sets_string": sets_string,
+                "score1": score1,
+                "score2": score2,
+            })
+
+        total = len(filtered)
+        start = (page - 1) * limit
+        end = start + limit
+        page_items = filtered[start:end]
+
+        return {
+            "matches": page_items,
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "has_more": end < total,
+        }
+
+    except Exception as e:
+        print("Error in /matches_paged:", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 
 # --- Delete Games Endpoint ---
 @app.post("/delete_result")
