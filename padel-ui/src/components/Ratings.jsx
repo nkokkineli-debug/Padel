@@ -7,13 +7,6 @@ function normalizeName(name) {
   return (name || "").trim().toLowerCase();
 }
 
-function playerInTeam(player, team) {
-  if (!player) return false;
-  if (!Array.isArray(team)) return false;
-  const playerName = normalizeName(player.name);
-  return team.map(normalizeName).includes(playerName);
-}
-
 function getPlayerForm(player, matches) {
   const results = [];
   matches.forEach(m => {
