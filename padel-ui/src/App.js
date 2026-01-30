@@ -11,10 +11,10 @@ import Profile from './components/Profile';
 import Results from "./components/Results";
 import { FiUserPlus, FiTrash2, FiCopy, FiMenu, FiX } from 'react-icons/fi';
 
-const API_BASE = 'http://127.0.0.1:8000';
-//const API_BASE = 'https://padel-4apg.onrender.com';
+//const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = 'https://padel-4apg.onrender.com';
 
-
+//function
 function getAllPairs(arr) {
   let pairs = [];
   for (let i = 0; i < arr.length; ++i) {
