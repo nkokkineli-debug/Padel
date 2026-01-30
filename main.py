@@ -1,14 +1,39 @@
 import os
-from dotenv import load_dotenv
-from supabase import create_client, Client
-from fastapi import FastAPI
 import json
 from collections import defaultdict
+from dotenv import load_dotenv
+from supabase import create_client, Client
 
+# -------------------------------------------------
+# Supabase init (ONLY ONCE)
+# -------------------------------------------------
+load_dotenv()
+url = os.environ.get("SUPABASE_URL")
+key = os.environ.get("SUPABASE_KEY")
+supabase: Client = create_client(url, key)
+
+# -------------------------------------------------
+# Debug settings
+# -------------------------------------------------
+DEBUG_ENABLED = True
+DEBUG_PLAYER_NAME = "Nikos"   # <-- change to the exact player name you want to track
+
+
+# -------------------------------------------------
+# Helpers
+# -------------------------------------------------
 def normalize_name(name: str) -> str:
     return (name or "").strip().lower()
 
+def _debug_print(msg: str):
+    if DEBUG_ENABLED:
+        print(msg)
+
+def _is_debug_player(pnorm: str) -> bool:
+    return DEBUG_ENABLED and pnorm == normalize_name(DEBUG_PLAYER_NAME)
+
 def _safe_json_list(value):
+    """Return a Python list from list or JSON-string-list. Otherwise []"""
     if isinstance(value, list):
         return value
     if isinstance(value, str):
@@ -20,6 +45,16 @@ def _safe_json_list(value):
     return []
 
 def _calculate_team_points_from_sets(sets):
+    """
+    Returns:
+      team1_total_points, team2_total_points, team1_sets_won, team2_sets_won, winner("team1"/"team2"/None)
+
+    This keeps your original logic:
+      - For each set, winner gets (win_points + 3), loser gets lose_points
+      - Win points depend on opponent games in set
+      - Match winner gets +3
+      - "Straight sets bonus": if a team wins ALL sets and total games won > 6 => +3
+    """
     team1_sets_won = 0
     team2_sets_won = 0
     team1_set_points = 0
@@ -32,46 +67,77 @@ def _calculate_team_points_from_sets(sets):
 
         if games1 > games2:
             team1_sets_won += 1
-            if games2 == 0: win_points, lose_points = 6, 0
-            elif games2 == 1: win_points, lose_points = 5, 0
-            elif games2 == 2: win_points, lose_points = 4, 1
-            elif games2 == 3: win_points, lose_points = 3, 1
-            elif games2 == 4: win_points, lose_points = 2, 1
-            else: win_points, lose_points = 1, 3
+            if games2 == 0:
+                win_points, lose_points = 6, 0
+            elif games2 == 1:
+                win_points, lose_points = 5, 0
+            elif games2 == 2:
+                win_points, lose_points = 4, 1
+            elif games2 == 3:
+                win_points, lose_points = 3, 1
+            elif games2 == 4:
+                win_points, lose_points = 2, 1
+            else:  # games2 >= 5
+                win_points, lose_points = 1, 3
+
             team1_set_points += win_points + 3
             team2_set_points += lose_points
 
         elif games2 > games1:
             team2_sets_won += 1
-            if games1 == 0: win_points, lose_points = 6, 0
-            elif games1 == 1: win_points, lose_points = 5, 0
-            elif games1 == 2: win_points, lose_points = 4, 1
-            elif games1 == 3: win_points, lose_points = 3, 1
-            elif games1 == 4: win_points, lose_points = 2, 1
-            else: win_points, lose_points = 1, 3
+            if games1 == 0:
+                win_points, lose_points = 6, 0
+            elif games1 == 1:
+                win_points, lose_points = 5, 0
+            elif games1 == 2:
+                win_points, lose_points = 4, 1
+            elif games1 == 3:
+                win_points, lose_points = 3, 1
+            elif games1 == 4:
+                win_points, lose_points = 2, 1
+            else:  # games1 >= 5
+                win_points, lose_points = 1, 3
+
             team2_set_points += win_points + 3
             team1_set_points += lose_points
 
-    if team1_sets_won > team2_sets_won: winner = "team1"
-    elif team2_sets_won > team1_sets_won: winner = "team2"
-    else: winner = None
+    # winner by sets
+    if team1_sets_won > team2_sets_won:
+        winner = "team1"
+    elif team2_sets_won > team1_sets_won:
+        winner = "team2"
+    else:
+        winner = None
 
     team1_total = team1_set_points
     team2_total = team2_set_points
 
-    if winner == "team1": team1_total += 3
-    elif winner == "team2": team2_total += 3
+    # match winner bonus
+    if winner == "team1":
+        team1_total += 3
+    elif winner == "team2":
+        team2_total += 3
 
+    # straight sets bonus: if won ALL sets and total games won > 6
     if sets and team1_sets_won == len(sets):
-        if sum(s[0] for s in sets if isinstance(s, list) and len(s) == 2) > 6:
+        total_games_won = sum(s[0] for s in sets if isinstance(s, list) and len(s) == 2)
+        if total_games_won > 6:
             team1_total += 3
+
     if sets and team2_sets_won == len(sets):
-        if sum(s[1] for s in sets if isinstance(s, list) and len(s) == 2) > 6:
+        total_games_won = sum(s[1] for s in sets if isinstance(s, list) and len(s) == 2)
+        if total_games_won > 6:
             team2_total += 3
 
     return team1_total, team2_total, team1_sets_won, team2_sets_won, winner
 
 def _split_team_points_to_players(team_points: int, team_norm_in_order):
+    """
+    Split team points to the 2 players so that:
+      player1 = ceil(team_points/2)
+      player2 = floor(team_points/2)
+    Team points == sum(player points)
+    """
     if len(team_norm_in_order) != 2:
         return {}
     p1, p2 = team_norm_in_order[0], team_norm_in_order[1]
@@ -79,10 +145,31 @@ def _split_team_points_to_players(team_points: int, team_norm_in_order):
     remainder = int(team_points) - (base * 2)  # 0 or 1
     return {p1: base + remainder, p2: base}
 
+
+# -------------------------------------------------
+# Main function used by API
+# -------------------------------------------------
 def update_ratings_for_group(group_id: str):
+    """
+    Recalculate ratings for a group using ONLY:
+      - last 8 matches per player (by match_date desc)
+      - last 8 matches per couple (by match_date desc)
+
+    IMPORTANT:
+      - A match can count for one player but not the partner if partner already reached 8 newer matches.
+      - Team points are split into player points. Team points = p1 + p2.
+    """
+
+    # Get all players in group so we can reset players that have <8 matches too
     players_rows = supabase.table("players").select("name").eq("group_id", group_id).execute().data or []
 
-    matches_resp = supabase.table("matches").select("*").eq("group_id", group_id).order("match_date", desc=True).execute()
+    # Get all matches ordered by newest first (by match_date)
+    matches_resp = supabase.table("matches") \
+        .select("*") \
+        .eq("group_id", group_id) \
+        .order("match_date", desc=True) \
+        .execute()
+
     if hasattr(matches_resp, "status_code") and matches_resp.status_code >= 400:
         print("Error fetching matches:", getattr(matches_resp, "data", None))
         return
@@ -95,11 +182,17 @@ def update_ratings_for_group(group_id: str):
     couple_stats = defaultdict(lambda: {"points": 0, "sets": 0, "matches": 0, "wins": 0})
     couple_counted = defaultdict(int)  # (p1,p2) -> matches counted (max 8)
 
+    nikos_norm = normalize_name(DEBUG_PLAYER_NAME)
+
     for match in matches:
+        match_date = match.get("match_date")
+        match_id = match.get("id")
+
         team1 = _safe_json_list(match.get("team1"))
         team2 = _safe_json_list(match.get("team2"))
         sets = _safe_json_list(match.get("sets"))
 
+        # must have complete info
         if not team1 or not team2 or not sets:
             continue
         if len(team1) != 2 or len(team2) != 2:
@@ -110,33 +203,86 @@ def update_ratings_for_group(group_id: str):
 
         team1_total, team2_total, team1_sets_won, team2_sets_won, winner = _calculate_team_points_from_sets(sets)
 
+        # Split to players (team points == sum players)
         team1_player_points = _split_team_points_to_players(team1_total, team1_norm)
         team2_player_points = _split_team_points_to_players(team2_total, team2_norm)
 
-        # Per-player: only last 8 matches
+        # DEBUG: print match if Nikos participates
+        if DEBUG_ENABLED and (nikos_norm in team1_norm or nikos_norm in team2_norm):
+            _debug_print("\n==================== DEBUG MATCH (TRACKED PLAYER) ====================")
+            _debug_print(f"Tracked player: {DEBUG_PLAYER_NAME} ({nikos_norm})")
+            _debug_print(f"Date: {match_date} | Match ID: {match_id}")
+            _debug_print(f"Team1 raw: {team1} | norm: {team1_norm}")
+            _debug_print(f"Team2 raw: {team2} | norm: {team2_norm}")
+            _debug_print(f"Sets: {sets}")
+            _debug_print(f"Sets won: team1={team1_sets_won}, team2={team2_sets_won}, winner={winner}")
+            _debug_print(f"Team totals: team1_total={team1_total}, team2_total={team2_total}")
+            _debug_print(f"Split team1 -> {team1_player_points}")
+            _debug_print(f"Split team2 -> {team2_player_points}")
+
+        # -----------------------------
+        # PER PLAYER: only last 8 matches per player
+        # -----------------------------
         for pnorm in team1_norm:
-            if not pnorm or player_counted[pnorm] >= 8:
+            if not pnorm:
                 continue
+
+            before = player_counted[pnorm]
+            if before >= 8:
+                if _is_debug_player(pnorm):
+                    _debug_print(f"[{DEBUG_PLAYER_NAME}] SKIP (already has 8 counted). Date={match_date} id={match_id}")
+                continue
+
             player_counted[pnorm] += 1
             ps = player_stats[pnorm]
+            before_points = ps["points"]
+
+            gained = int(team1_player_points.get(pnorm, 0))
             ps["matches"] += 1
             ps["sets"] += team1_sets_won
-            ps["points"] += int(team1_player_points.get(pnorm, 0))
+            ps["points"] += gained
             if winner == "team1":
                 ps["wins"] += 1
 
+            if _is_debug_player(pnorm):
+                _debug_print(
+                    f"[{DEBUG_PLAYER_NAME}] COUNTED #{before+1}/8 as TEAM1 | gained={gained} | "
+                    f"points {before_points}->{ps['points']} | sets+={team1_sets_won} | "
+                    f"win={'yes' if winner=='team1' else 'no'} | {match_date} id={match_id}"
+                )
+
         for pnorm in team2_norm:
-            if not pnorm or player_counted[pnorm] >= 8:
+            if not pnorm:
                 continue
+
+            before = player_counted[pnorm]
+            if before >= 8:
+                if _is_debug_player(pnorm):
+                    _debug_print(f"[{DEBUG_PLAYER_NAME}] SKIP (already has 8 counted). Date={match_date} id={match_id}")
+                continue
+
             player_counted[pnorm] += 1
             ps = player_stats[pnorm]
+            before_points = ps["points"]
+
+            gained = int(team2_player_points.get(pnorm, 0))
             ps["matches"] += 1
             ps["sets"] += team2_sets_won
-            ps["points"] += int(team2_player_points.get(pnorm, 0))
+            ps["points"] += gained
             if winner == "team2":
                 ps["wins"] += 1
 
-        # Couples: points = TEAM points (not *2), last 8 matches per couple
+            if _is_debug_player(pnorm):
+                _debug_print(
+                    f"[{DEBUG_PLAYER_NAME}] COUNTED #{before+1}/8 as TEAM2 | gained={gained} | "
+                    f"points {before_points}->{ps['points']} | sets+={team2_sets_won} | "
+                    f"win={'yes' if winner=='team2' else 'no'} | {match_date} id={match_id}"
+                )
+
+        # -----------------------------
+        # PER COUPLE: only last 8 matches per couple
+        # Couple points = TEAM points (not *2)
+        # -----------------------------
         couple1 = tuple(sorted(team1_norm))
         if len(couple1) == 2 and couple_counted[couple1] < 8:
             couple_counted[couple1] += 1
@@ -157,7 +303,19 @@ def update_ratings_for_group(group_id: str):
             if winner == "team2":
                 cs["wins"] += 1
 
-    # Update ALL players (reset inactive to 0 so results are consistent)
+    # Final debug summary
+    if DEBUG_ENABLED:
+        ps = player_stats.get(nikos_norm, {"points": 0, "sets": 0, "matches": 0, "wins": 0})
+        _debug_print("\n==================== DEBUG SUMMARY (TRACKED PLAYER) ====================")
+        _debug_print(f"Tracked player: {DEBUG_PLAYER_NAME} ({nikos_norm})")
+        _debug_print(f"Counted matches: {player_counted.get(nikos_norm, 0)}")
+        _debug_print(f"Totals: points={ps['points']} matches={ps['matches']} wins={ps['wins']} sets_won={ps['sets']}")
+        _debug_print("=======================================================================\n")
+
+    # -------------------------------------------------
+    # Update ALL players in DB (reset those without matches too)
+    # IMPORTANT: uses raw_name from players table to match rows
+    # -------------------------------------------------
     for pr in players_rows:
         raw_name = pr.get("name")
         pnorm = normalize_name(raw_name)
@@ -170,7 +328,9 @@ def update_ratings_for_group(group_id: str):
             "matches_won": int(ps["wins"]),
         }).eq("name", raw_name).eq("group_id", group_id).execute()
 
-    # Update couples table
+    # -------------------------------------------------
+    # Update couples table (only couples that exist in last 8 counted)
+    # -------------------------------------------------
     for (p1, p2), cs in couple_stats.items():
         if not p1 or not p2:
             continue
@@ -193,197 +353,3 @@ def update_ratings_for_group(group_id: str):
         else:
             supabase.table("couples").update(payload) \
                 .eq("player1", p1).eq("player2", p2).eq("group_id", group_id).execute()
-
-app = FastAPI()
-load_dotenv()
-
-url = os.environ.get("SUPABASE_URL")
-key = os.environ.get("SUPABASE_KEY")
-supabase: Client = create_client(url, key)
-
-def normalize_name(name):
-    return (name or "").strip().lower()
-
-def update_ratings_for_group(group_id):
-    matches_resp = supabase.table("matches").select("*").eq("group_id", group_id).order("match_date", desc=True).execute()
-    if hasattr(matches_resp, "status_code") and matches_resp.status_code >= 400:
-        print("Error fetching matches:", getattr(matches_resp, "data", None))
-        return
-
-    matches = matches_resp.data
-    player_stats = defaultdict(lambda: {"points": 0, "sets": 0, "matches": 0, "wins": 0, "raw_name": None})
-    couple_stats = defaultdict(lambda: {"points": 0, "sets": 0, "matches": 0, "wins": 0})
-
-    # --- Process each match only once ---
-    for match in matches:
-        team1 = match["team1"]
-        team2 = match["team2"]
-        sets = match.get("sets", [])
-        match_date = match.get("match_date")
-
-        if isinstance(team1, str):
-            try: team1 = json.loads(team1)
-            except Exception: continue
-        if isinstance(team2, str):
-            try: team2 = json.loads(team2)
-            except Exception: continue
-        if isinstance(sets, str):
-            try: sets = json.loads(sets)
-            except Exception: sets = []
-
-        team1_norm = [normalize_name(p) for p in team1]
-        team2_norm = [normalize_name(p) for p in team2]
-
-        team1_sets_won = 0
-        team2_sets_won = 0
-        team1_set_points = 0
-        team2_set_points = 0
-
-        for s in sets:
-            games1, games2 = s[0], s[1]
-            if games1 > games2:
-                team1_sets_won += 1
-                if games2 == 0:
-                    win_points = 6; lose_points = 0
-                elif games2 == 1:
-                    win_points = 5; lose_points = 0
-                elif games2 == 2:
-                    win_points = 4; lose_points = 1
-                elif games2 == 3:
-                    win_points = 3; lose_points = 1
-                elif games2 == 4:
-                    win_points = 2; lose_points = 1
-                elif games2 >= 5:
-                    win_points = 1; lose_points = 3
-                team1_set_points += win_points + 3
-                team2_set_points += lose_points
-            elif games2 > games1:
-                team2_sets_won += 1
-                if games1 == 0:
-                    win_points = 6; lose_points = 0
-                elif games1 == 1:
-                    win_points = 5; lose_points = 0
-                elif games1 == 2:
-                    win_points = 4; lose_points = 1
-                elif games1 == 3:
-                    win_points = 3; lose_points = 1
-                elif games1 == 4:
-                    win_points = 2; lose_points = 1
-                elif games1 >= 5:
-                    win_points = 1; lose_points = 3
-                team2_set_points += win_points + 3
-                team1_set_points += lose_points
-
-        if team1_sets_won > team2_sets_won:
-            winner = "team1"
-        elif team2_sets_won > team1_sets_won:
-            winner = "team2"
-        else:
-            winner = None
-
-        team1_total_awarded = team1_set_points
-        team2_total_awarded = team2_set_points
-
-        if winner == "team1":
-            team1_total_awarded += 3
-        elif winner == "team2":
-            team2_total_awarded += 3
-
-        if team1_sets_won == len(sets) and len(sets) > 0:
-            total_games_won = sum(s[0] for s in sets)
-            if total_games_won > 6:
-                team1_total_awarded += 3
-        if team2_sets_won == len(sets) and len(sets) > 0:
-            total_games_won = sum(s[1] for s in sets)
-            if total_games_won > 6:
-                team2_total_awarded += 3
-
-        print(f"\nMatch date: {match_date}")
-        print(f"Team1: {team1} (normalized: {team1_norm})")
-        print(f"Team2: {team2} (normalized: {team2_norm})")
-        print(f"Winner: {winner}")
-        print(f"Team1 total awarded: {team1_total_awarded}")
-        print(f"Team2 total awarded: {team2_total_awarded}")
-
-        # Assign points to all players in team1
-        for i, player in enumerate(team1):
-            pname = team1_norm[i]
-            stats = player_stats[pname]
-            stats["raw_name"] = player
-            stats["sets"] += team1_sets_won
-            stats["matches"] += 1
-            if winner == "team1":
-                stats["wins"] += 1
-            stats["points"] += team1_total_awarded
-            print(f"Assigned {team1_total_awarded} points to player {player} (normalized: {pname}). Total now: {stats['points']}")
-
-        # Assign points to all players in team2
-        for i, player in enumerate(team2):
-            pname = team2_norm[i]
-            stats = player_stats[pname]
-            stats["raw_name"] = player
-            stats["sets"] += team2_sets_won
-            stats["matches"] += 1
-            if winner == "team2":
-                stats["wins"] += 1
-            stats["points"] += team2_total_awarded
-            print(f"Assigned {team2_total_awarded} points to player {player} (normalized: {pname}). Total now: {stats['points']}")
-
-        # --- Couple stats ---
-        if len(team1_norm) == 2:
-            couple1 = tuple(sorted(team1_norm))
-            cstats = couple_stats[couple1]
-            cstats["sets"] += team1_sets_won
-            cstats["matches"] += 1
-            if winner == "team1":
-                cstats["wins"] += 1
-            cstats["points"] += team1_total_awarded * 2
-        if len(team2_norm) == 2:
-            couple2 = tuple(sorted(team2_norm))
-            cstats = couple_stats[couple2]
-            cstats["sets"] += team2_sets_won
-            cstats["matches"] += 1
-            if winner == "team2":
-                cstats["wins"] += 1
-            cstats["points"] += team2_total_awarded * 2
-
-    # Update player ratings in DBs
-    for pname, stats in player_stats.items():
-        try:
-            print(f"Updating DB for player {stats['raw_name']} (normalized: {pname}) with points: {stats['points']}")
-            supabase.table("players").update({
-                "total_points": int(round(stats["points"])),
-                "sets_won": int(round(stats["sets"])),
-                "matches_played": int(round(stats["matches"])),
-                "matches_won": int(round(stats["wins"]))
-            }).eq("name", stats["raw_name"]).eq("group_id", group_id).execute()
-        except Exception as e:
-            print(f"Error updating player {stats['raw_name']}: {e}")
-
-    # Update couple ratings in DB
-    for couple, stats in couple_stats.items():
-        if len(couple) != 2:
-            continue
-        player1, player2 = couple
-        try:
-            couple_resp = supabase.table("couples").select("*") \
-                .eq("player1", player1).eq("player2", player2).eq("group_id", group_id).execute()
-            if not couple_resp.data:
-                supabase.table("couples").insert({
-                    "player1": player1,
-                    "player2": player2,
-                    "group_id": group_id,
-                    "total_points": int(round(stats["points"])),
-                    "sets_won": int(round(stats["sets"])),
-                    "matches_played": int(round(stats["matches"])),
-                    "matches_won": int(round(stats["wins"]))
-                }).execute()
-            else:
-                supabase.table("couples").update({
-                    "total_points": int(round(stats["points"])),
-                    "sets_won": int(round(stats["sets"])),
-                    "matches_played": int(round(stats["matches"])),
-                    "matches_won": int(round(stats["wins"]))
-                }).eq("player1", player1).eq("player2", player2).eq("group_id", group_id).execute()
-        except Exception as e:
-            print(f"Error updating couple {couple}: {e}")
