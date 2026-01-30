@@ -7,7 +7,7 @@ from itertools import combinations
 from fastapi.responses import JSONResponse
 from main import update_ratings_for_group
 import uuid
-import main  # <-- Import your business logic and supabase client
+import main  # <-- Imports your business logic and supabase client
 import json
 
 

@@ -68,7 +68,7 @@ export default function Results({ selectedGroup }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  // Load players for dropdown
+  // Loads players for dropdown
   useEffect(() => {
     if (!selectedGroup) {
       setPlayers([]);

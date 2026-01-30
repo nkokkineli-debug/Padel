@@ -3,6 +3,7 @@ import {
   FiHome, FiPlusCircle, FiCheckSquare, FiBarChart2, FiUser, FiLogOut, FiUsers as FiGroup, FiList
 } from 'react-icons/fi';
 
+// Sidebar component with navigation links
 function Sidebar({ menuView, setMenuView, handleLogout, isSidebarExpanded }) {
   return (
     <div className={`sidebar ${isSidebarExpanded ? 'expanded' : 'collapsed'}`}>
